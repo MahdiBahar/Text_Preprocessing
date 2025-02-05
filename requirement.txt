@@ -3,3 +3,4 @@ pandas
 matplotlib
 regex
 seaborn
+openpyxl
