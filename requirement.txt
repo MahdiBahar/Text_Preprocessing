@@ -4,3 +4,4 @@ matplotlib
 regex
 seaborn
 openpyxl
+emoji
