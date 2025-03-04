@@ -1,5 +1,5 @@
 import re
-
+import emoji
 
 
 def _multiple_replace(mapping, text):
@@ -56,8 +56,6 @@ def convert_ar_characters(input_str):
 
 #-------------------------------------------------------------------------------------------
 
-import emoji
-import re
 
 def convert_emojis_to_persian(text):
     # First, convert emojis to English descriptive labels.

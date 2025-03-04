@@ -3,7 +3,7 @@ from preprocessing_func import convert_fa_numbers, convert_ar_characters, conver
 from preprocessing_func import  remove_diacritics, map_num_to_text, merge_mi_prefix, replace_multiple_space
 from preprocessing_func import remove_half_space, remove_extra_charecter, remove_number, remove_punctuation
 
-import re
+# import re
 
 
 
