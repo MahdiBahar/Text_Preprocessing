@@ -1,6 +1,6 @@
 import re
 import emoji
-
+import string
 
 def _multiple_replace(mapping, text):
     pattern = "|".join(map(re.escape, mapping.keys()))
@@ -58,11 +58,10 @@ def convert_ar_characters(input_str):
 
 
 def convert_emojis_to_persian(text):
-    # First, convert emojis to English descriptive labels.
-    # This will convert "😊" into something like ":smiling_face_with_smiling_eyes:".
+    # convert emojis to English descriptive labels.
     demojized_text = emoji.demojize(text)
     
-    # Define a dictionary mapping some common English emoji labels to Persian words.
+    # define a dictionary mapping some common English emoji labels to Persian words.
     persian_emoji_map = {
         ":smiling_face_with_smiling_eyes:": "خندان",
         ":grinning_face:": "با لبخند",
@@ -89,12 +88,12 @@ def convert_emojis_to_persian(text):
     
     
     }
-    # Replace known emojis with Persian equivalents
+    # replace known emojis with Persian equivalents
     for eng_label, pers_label in persian_emoji_map.items():
         persian_formatted = f"[{pers_label}]"  # Wrap in brackets
         demojized_text = re.sub(re.escape(eng_label), persian_formatted, demojized_text)
 
-    # Replace any remaining :emoji_name: patterns (unmapped emojis) with a space
+    # replace any remaining :emoji_name: patterns (unmapped emojis) with a space
     demojized_text = re.sub(r':[a-zA-Z0-9_]+:', ' ', demojized_text)
     
     return demojized_text
@@ -107,7 +106,7 @@ def merge_mi_prefix(text):
     return re.sub(r'\b(ن?می)\s+(\S+)', r'\1\2', text)
 
 def remove_diacritics(text):
-    # Define regex for Persian diacritics (Unicode range: \u064B-\u0652)
+    # define regex for Persian diacritics (Unicode range: \u064B-\u0652)
     diacritics_pattern = re.compile(r'[\u064B-\u0652]')
     return re.sub(diacritics_pattern, '', text)
 
@@ -140,7 +139,7 @@ def replace_multiple_space(text):
 
 def map_num_to_text(text):
 
-    # Check if the text is exactly '1', '2', or '3' (nothing else)
+    # check if the text is exactly '1', '2', '3' , '4', '5'
     mapping = {'1': 'خیلی بد', '2': 'بد', '3': 'متوسط' , '4': 'خوب' , '5': 'عالی'}
     
     if text in mapping:
@@ -149,3 +148,12 @@ def map_num_to_text(text):
     return text 
 #--------------------------------------------------------------------------------------------------------
 
+def remove_punctuaction_except(text):
+    # start with the ASCII punctuation minus the parentheses
+    punctuation = string.punctuation.replace("(", "").replace(")", "")
+    # add common Persian punctuation characters
+    punctuation += "،؟؛«»"
+    # create a character set pattern from the punctuation characters
+    pattern = "[" + re.escape(punctuation) + "]"
+    # replace every punctuation character in the pattern with a space
+    return re.sub(pattern, " ", text)
