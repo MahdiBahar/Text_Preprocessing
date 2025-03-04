@@ -118,6 +118,26 @@ def convert_number_to_text(text):
     
     return re.sub(r'(\d)\d*', r'\1', text)
 
+def remove_half_space(text):
+
+    text = text.replace('\u200c', '')
+    return text
+
+def remove_extra_charecter(text):
+
+    return re.sub(r'(\w)\1{2,}', r'\1\1',text)
+
+def remove_number(text):
+
+    return re.sub(r' [\d+]', ' ',text)
+
+def remove_punctuation(text):
+
+    return re.sub(r'[^\w\[\]]', ' ', text)
+
+def replace_multiple_space(text):
+
+    return re.sub(r'[\s]{2,}', ' ', text)
 
 
 def map_num_to_text(text):
@@ -129,7 +149,5 @@ def map_num_to_text(text):
         return mapping[text]  
     
     return text 
-
-
 #--------------------------------------------------------------------------------------------------------
 
