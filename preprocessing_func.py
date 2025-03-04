@@ -2,7 +2,6 @@ import re
 
 
 
-
 def _multiple_replace(mapping, text):
     pattern = "|".join(map(re.escape, mapping.keys()))
     return re.sub(pattern, lambda m: mapping[m.group()], str(text))
