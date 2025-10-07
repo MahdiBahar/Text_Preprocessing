@@ -1,5 +1,5 @@
 import re
-import emoji
+from typing import List, Optional
 import string
 
 def _multiple_replace(mapping, text):
@@ -57,53 +57,11 @@ def convert_ar_characters(input_str):
 #-------------------------------------------------------------------------------------------
 
 
-def convert_emojis_to_persian(text):
-    # convert emojis to English descriptive labels.
-    demojized_text = emoji.demojize(text)
-    
-    # define a dictionary mapping some common English emoji labels to Persian words.
-    persian_emoji_map = {
-        ":smiling_face_with_smiling_eyes:": "خندان",
-        ":grinning_face:": "با لبخند",
-        ":face_with_tears_of_joy:": "با اشک شوق",
-        ":red_heart:": "عشق",
-        ":thumbs_up:": "پسندیده",
-        ":thumbs_down:" : "نپسندیده" , # 👎
-        ":OK_hand:" : "خوب", # 👌
-        "folded_hands": "تشکر"  ,
-        "rose" : "مرسی" , 
-        "cherry_blossom" : "سپاس" ,
-        "face_with_symbols_on_mouth" : "خیلی عصبانی" , 
-        ":face_vomiting:" : "مزخرف" , #  🤮
-        ":angry_face:" : "عصبانی", # 😠
-        ":broken_heart:" : "قلب شکسته", # 💔
-        ":clapping_hands:" : "عالی" , # 👏 
-        ":confused_face:" : "گیج شدم" , # 😕 
-        ":crying_face:" : "گریه میکنم" , # 😢 
-        ":disappointed_face:" : "ناامید", # 😞 
-        ":enraged_face:" : "عصبانی" , # 😡
-        ":expressionless_face:" : "خنثی" , # 😑
-        ":sparkling_heart:" : "دوستداشتنی" , # 💖
-        ":smiling_face_with_heart-eyes:" : "دوستداشتنی", # 😍
-    
-    
-    }
-    # replace known emojis with Persian equivalents
-    for eng_label, pers_label in persian_emoji_map.items():
-        persian_formatted = f"[{pers_label}]"  # Wrap in brackets
-        demojized_text = re.sub(re.escape(eng_label), persian_formatted, demojized_text)
-
-    # replace any remaining :emoji_name: patterns (unmapped emojis) with a space
-    demojized_text = re.sub(r':[a-zA-Z0-9_]+:', ' ', demojized_text)
-    
-    return demojized_text
-
-#--------------------------------------------------------------------------------------------------------
-
-
 def merge_mi_prefix(text):
-
-    return re.sub(r'\b(ن?می)\s+(\S+)', r'\1\2', text)
+    zwnj = '\u200C'    # zero-width non-joiner
+    # note: replacement is NOT a raw string, so \u200C is interpreted properly
+    replacement = r'\1' + zwnj + r'\2'
+    return re.sub(r'\b(ن?می)\s+(\S+)', replacement, text)
 
 def remove_diacritics(text):
     # define regex for Persian diacritics (Unicode range: \u064B-\u0652)
@@ -148,12 +106,107 @@ def map_num_to_text(text):
     return text 
 #--------------------------------------------------------------------------------------------------------
 
-def remove_punctuaction_except(text):
-    # start with the ASCII punctuation minus the parentheses
-    punctuation = string.punctuation.replace("(", "").replace(")", "")
-    # add common Persian punctuation characters
-    punctuation += "،؟؛«»"
-    # create a character set pattern from the punctuation characters
-    pattern = "[" + re.escape(punctuation) + "]"
-    # replace every punctuation character in the pattern with a space
-    return re.sub(pattern, " ", text)
+def remove_punctuation_except_keep(
+    text: str,
+    keep: Optional[List[str]] = None
+) -> str:
+    # Determine which chars to keep 
+    default_keep = []
+    # default_keep = ['(', ')', '،', '؟', '؛', '«', '»']
+    keep_set = set(keep) if keep is not None else set(default_keep)
+
+    # Build the full punctuation set
+    ascii_punct   = set(string.punctuation)                    # !"#$%&'()*+,...@
+    persian_punct = set(list("،؟؛«»"))                         # common Persian punctuation
+    all_punct     = ascii_punct | persian_punct
+
+    # Compute which to remove
+    remove_chars = all_punct - keep_set
+
+    # Build regex and clean 
+    # [chars]+ will match any run of unwanted punctuation
+    pattern = re.compile("[" + re.escape("".join(remove_chars)) + "]+")
+    # replace with a single space, then collapse multiple spaces
+    cleaned = pattern.sub(" ", text)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+
+# Split sentences on . ! ? followed by whitespace
+_SENT_SPLIT = re.compile(r'(?<=[.!?])\s+')
+
+def drop_short_sentences(text: str, min_words: int = 0) -> str:
+ 
+    sentences = _SENT_SPLIT.split(text)
+    kept = []
+    for sent in sentences:
+        sent = sent.strip()
+        # count words by splitting on whitespace
+        if sent and len(sent.split()) >= min_words:
+            kept.append(sent)
+        # else: drop this sentence entirely
+    return ' '.join(kept)
+
+
+
+def remove_phrases(text: str, phrases: List[str] = []) -> str:
+    if not phrases:
+        return text.strip()
+    
+    # 1) Escape and join into an alternation
+    escaped = [re.escape(p) for p in phrases]
+    pattern = re.compile(
+        r'\s*(?:' + "|".join(escaped) + r')\s*'
+    )
+    
+    # 2) Delete them
+    cleaned = pattern.sub(' ', text)
+    # 3) Collapse multiple spaces, trim
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned
+
+
+
+# English + Persian punctuation to pad
+PUNCT_CLASS = r'-\*\.,/"\"!?:;،؟؛«»()\[\]{}"\'…'
+
+def add_space_punc(text: str) -> str:
+    # 1) ensure a space BEFORE each punctuation (if not already)
+    text = re.sub(rf'(?<!\s)([{PUNCT_CLASS}])', r' \1', text)
+    # 2) ensure a space AFTER each punctuation (if not already)
+    text = re.sub(rf'([{PUNCT_CLASS}])(?!\s)', r'\1 ', text)
+    # 3) clean up
+    return re.sub(r'\s+', ' ', text).strip()
+
+def remove_space_after_words(text:str, words: List[str] = []) -> str:
+    for word in words:
+        # match "word + space(s)" and replace with "word"
+        pattern = rf"{word}\s+"
+        text = re.sub(pattern, word, text)
+    return text
+
+
+## replace space with half space
+def replace_before_spaces_with_halfspace(text:str, words: List[str] = []) -> str:
+    for word in words:
+        # Match "space + word" and replace with "half-space + word"
+        pattern = rf"\s+{word}"
+        text = re.sub(pattern, f"\u200c{word}", text)
+    return text
+
+# remove ها / های / هایی
+def remove_ha_s_suffix(text):
+
+    pattern = r'(?:\s|‌)?ها(?:ی(?:ی)?)?\b'
+    return re.sub(pattern, '', text)
+
+# Quick check
+# text = """چک برگشتی و ضمانتنامه بلاتکلیف (صرفا ضمانتنامه) نزد سپام می‌باشد ."
+# "در (صورت ریز مسدودی و رفع مسدودی) مبلغ مسدودی وجود ندارد اما در (گزارش صورتحساب سی و پنج گردش آخر) مبلغ مسدودی نمایش داده می‌شود . از طریق سامانه بک آفیس » سپرده » انسداد/رفع انسداد گروهی » صورت ریز مسدودی و رفع مسدودی ها بررسی گردد . در (صورت ریز مسدودی و رفع مسدودی) موارد ذیل نمایش داده نمی‌شود : 1-مسدودی بابت حج 2-مسدودی بابت شارژ 3-مسدودی بابت خدمات بورس 4- مسدودی بابت یارانه تکمیلی 5- تامین موجودی چک برگشتی که در (گزارش انسداد/رفع انسداد مبلغ بابت تامین موجودی چک برگشتی) قابل مشاهده می‌باشد . 6- درصورتی که حساب تعداد مسدودی زیادی دارد به دلیل محدودیت نمایش (100 ردیف) ، تاریخ آخرین ردیف مسدودی نمایش داده شده در گزارش 1941 را در فیلد ""از تاریخ"" وارد کرده و تعداد مسدودی های بعدی را نمایش می‌دهد . (اطلاعات مورد نیاز : شماره حساب - مبلغ مسدودی)"
+# "در (گزارش صورتحساب سی و پنج گردش آخر) مبلغی با شرح ""برگشت حواله ساتنا/پایا"" نمایش داده می‌شود . پس از صدور حواله ساتنا/پایا ، در صورتی که شبای مقصد دارای استعلام سیاح نامعتبر باشد ، حواله ساتنا/پایا برگشت داده می‌شود . لازم به ذکر است صدور حواله پایا به شبای تسهیلات بدون بررسی استعلام سیاح امکان پذیر می‌باشد . نکته : امکان صدور حواله پایا ، ساتنا برای مشتریان خارجی (حقیقی و حقوقی ) امکان پذیر نمی‌باشد . لازم به ذکر است که صدور حواله از سمت بانک ملت انجام می‌گردد اما از سمت بانک مرکزی رد می‌گردد ."
+# "در (گزارش وضعیت استعلام سیاح از بانک مرکزی) پاسخ استعلام با شرح ""در انتظار پاسخ"" نمایش داده می‌شود . در صورتی اطلاعات مشتری اصلاح شود و در سامانه متمرکز نیز تغییرات اعمال گردد ، این اصلاحات از سوی بانک مرکزی در سامانه سیاح تغییر پیدا نمی‌کند . اصلاحاتی از جمله اصلاح کد ملی و . . . برای مشتری حقیقی ، اصلاح شناسه ملی و . . . برای مشتری حقوقی و اصلاح شماره فراگیر و . . . برای مشتری خارجی . جهت رفع مشکل اینگونه موارد می‌بایست حساب مذکور بسته شده و با اطلاعات اصلاح شده نسبت به افتتاح حساب جدید اقدام گردد ."
+# جهت پیگیری وندیا های ارسال شده از چه طریق می‌بایست اقدام گردد ؟ """
+# print(add_space_punc(')('))                 # -> ') ('
+# print(add_space_punc(text))             # -> '( سلام )'
+# print(add_space_punc('«سلام»(اطلاعات)'))   # -> '« سلام » ( اطلاعات )'
